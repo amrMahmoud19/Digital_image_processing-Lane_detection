@@ -7,7 +7,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
+
 
 # In[2]:
 
@@ -136,7 +136,7 @@ def sliding_window(img,dst_colored, window_size , right_poly_old, init , frame_d
         left_lane_indices.append(good_left_inds)
         right_lane_indices.append(good_right_inds)
         
-        #if the window contain black pixels don't shit it
+        #if the window contain black pixels don't shift it
         if len(good_left_inds) > 65:
             start_left_x = int(np.mean(white_x[good_left_inds]))
         if len(good_right_inds) > 65:        
@@ -178,27 +178,51 @@ def sliding_window(img,dst_colored, window_size , right_poly_old, init , frame_d
 # In[6]:
 
 
+def calc_off_dist(frame, right_lane_pts, left_lane_pts):                     #Calculating distance off center
+        
+        centre_car = (frame.shape[1]//2, 720)                                #determining center of car from original view
+        
+        #transforming centre coordinates into bird-eye view
+        px = (M[0][0]*centre_car[0] + M[0][1]*centre_car[1] + M[0][2]) / ((M[2][0]*centre_car[0] + M[2][1]*centre_car[1] + M[2][2]))
+        py = (M[1][0]*centre_car[0] + M[1][1]*centre_car[1] + M[1][2]) / ((M[2][0]*centre_car[0] + M[2][1]*centre_car[1] + M[2][2]))
+        
+        centre_car = (int(px), int(py))
+        
+        #getting left and right lane points indicating width of lane which is 3 meters
+        right_lane_x = right_lane_pts[0]
+        
+        left_lane_x  = left_lane_pts[0]
+        
+        dst_px = abs(right_lane_x - left_lane_x)    #width of lane in pixels
+        dst_real = 300                              #distance of lane in cm
+        scale = dst_real/dst_px                     #scaling factor for transfroming distance from pixels to cm
+        
+        centre_lane = (dst_px//2 + left_lane_x)
+        dst_off_px = abs(centre_lane - centre_car[0])  #distance off centre in pixels
+        
+        dst_off = dst_off_px*scale               #distance off centre in meters
+        dst_off = round(dst_off/100,2)
+        
+        return dst_off
 
 
-# input_name = "project_video"
-# path = r"C:\Users\amrmo\Documents\Digital_image_processing-Lane_detection\Project_data\\"+ input_name +".mp4"
-in_path = sys.argv[1]
-out_path = sys.argv[2]
-debug = int(sys.argv[3])
-challenge = int(sys.argv[4])
+# In[ ]:
 
 
 
-print("Input Video Path: " + in_path)
-print("Output Video Path: " + out_path)
-print("Debug Mode: " + str(debug))
-print("Video Mode: " + str(challenge))
 
-cap = cv2.VideoCapture(in_path)
+
+# In[7]:
+
+
+input_name = "project_video"
+path = r"C:\Users\amrmo\Documents\Digital_image_processing-Lane_detection\Project_data\\"+ input_name +".mp4"
+cap = cv2.VideoCapture(path)
 #Project_video Thresholds
 # s_thresh = (160, 255) 
 # l_thresh = (150 , 255)
 
+challenge = False
 
 #thresholding of s channel
 #opt = 75
@@ -211,10 +235,10 @@ l_thresh = (140 , 255)
 #200,100
 shad_thresh = (150,100)
 
+debug = 1
 debug_resize = 3
 ny_pipeline = 3
-
-output_name = 'output'
+output_name = input_name + '_output'
 size = (1280 , 720)
 if debug == 1:
     pipeline = []
@@ -222,7 +246,7 @@ if debug == 1:
     size = ((1280 // debug_resize) * 2 , (720 // debug_resize) * ny_pipeline)
 
 
-if challenge == 0:
+if challenge == False:
     #for project video
     input_top_left = [550,468]
     input_top_right = [742,468]
@@ -241,7 +265,7 @@ init = False
 right_poly_old = np.zeros((720 , 2 , 2) , np.int32)
 
 fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-out = cv2.VideoWriter(out_path + output_name +'.mp4', fourcc, 25, size)
+out = cv2.VideoWriter(output_name +'.mp4', fourcc, 25, size)
 
 while(cap.isOpened()):
     ret, frame = cap.read()
@@ -272,6 +296,10 @@ while(cap.isOpened()):
         
         re_bird = warpPerspective(out_img , Minv , (1280,720) )
         
+        #printing the off-centre distance on video frame
+        dst_off = calc_off_dist(frame ,right_poly_new[350], left_poly[350])
+        re_bird = cv2.putText(img=re_bird, text='The car is '+str(dst_off)+' off centre' , org=(0,100), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=2, color=(255, 255, 255),thickness=3)
+        
         image = np.zeros_like(frame)
         cv2.addWeighted(frame, 0.5, re_bird, 0.5,0, image)
         
@@ -284,7 +312,7 @@ while(cap.isOpened()):
             pipeline.append(image)
             image = debug_mode(pipeline , debug_resize)
             pipeline.clear()
-
+        
         out.write(image)
         cv2.imshow('frame',image)
         
