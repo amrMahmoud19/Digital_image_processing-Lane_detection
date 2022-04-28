@@ -7,7 +7,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
+import sys
 
 # In[2]:
 
@@ -172,7 +172,7 @@ def sliding_window(img,dst_colored, window_size , right_poly_old, init , frame_d
     cv2.polylines(dst_colored , [left_poly] , isClosed = False , color=(0,255,0) , thickness=50)
     cv2.polylines(dst_colored , [right_poly], isClosed = False , color=(0,0,255), thickness= 50)
     
-    return dst_colored, right_poly,left_fitx , right_fitx,ploty
+    return dst_colored, right_poly,left_poly,left_fitx , right_fitx,ploty
 
 
 # In[6]:
@@ -215,14 +215,26 @@ def calc_off_dist(frame, right_lane_pts, left_lane_pts):                     #Ca
 # In[7]:
 
 
-input_name = "project_video"
-path = r"C:\Users\amrmo\Documents\Digital_image_processing-Lane_detection\Project_data\\"+ input_name +".mp4"
-cap = cv2.VideoCapture(path)
+isVideo = int(sys.argv[1])
+input_path = str(sys.argv[2])
+output_path = str(sys.argv[3])
+debug = int(sys.argv[4])
+challenge = int(sys.argv[5])
+
+print("Video Mode: " + str(isVideo))
+print("Input Path: " +input_path)
+print("Output Path: " + output_path)
+print("Debug Mode: "+str(debug))
+print("Video Type: "+str(challenge))
+
+
+
+cap = cv2.VideoCapture(input_path)
 #Project_video Thresholds
 # s_thresh = (160, 255) 
 # l_thresh = (150 , 255)
 
-challenge = False
+
 
 #thresholding of s channel
 #opt = 75
@@ -235,10 +247,10 @@ l_thresh = (140 , 255)
 #200,100
 shad_thresh = (150,100)
 
-debug = 1
+
 debug_resize = 3
 ny_pipeline = 3
-output_name = input_name + '_output'
+output_name = 'output'
 size = (1280 , 720)
 if debug == 1:
     pipeline = []
@@ -246,7 +258,7 @@ if debug == 1:
     size = ((1280 // debug_resize) * 2 , (720 // debug_resize) * ny_pipeline)
 
 
-if challenge == False:
+if challenge == 0:
     #for project video
     input_top_left = [550,468]
     input_top_right = [742,468]
@@ -264,8 +276,9 @@ dst_pt = np.float32([[0,720],[0,0],[1280,0],[1280,720]])
 init = False
 right_poly_old = np.zeros((720 , 2 , 2) , np.int32)
 
+
 fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-out = cv2.VideoWriter(output_name +'.mp4', fourcc, 25, size)
+out = cv2.VideoWriter(output_path + output_name +'.mp4', fourcc, 25, size)
 
 while(cap.isOpened()):
     ret, frame = cap.read()
@@ -283,7 +296,7 @@ while(cap.isOpened()):
                 
 #         dst_colored = perspective_warp(frame ,src=input_points , dst=p2)
         dst_colored = warpPerspective(frame ,M , (1280 , 720))
-        out_img,right_poly_new ,left_fit , right_fit,ploty= sliding_window(dst , dst_colored, (72 , 128),right_poly_old,init,150)
+        out_img,right_poly_new,left_poly ,left_fit , right_fit,ploty= sliding_window(dst , dst_colored, (72 , 128),right_poly_old,init,150)
         right_poly_old = right_poly_new
         
         left = np.array([np.transpose(np.vstack([left_fit, ploty]))])
@@ -313,10 +326,16 @@ while(cap.isOpened()):
             image = debug_mode(pipeline , debug_resize)
             pipeline.clear()
         
-        out.write(image)
-        cv2.imshow('frame',image)
-        
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if isVideo == 1:
+            out.write(image)
+            cv2.imshow('frame',image)
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        else:
+            cv2.imshow('Modified Image', image)
+            cv2.waitKey(0)
+            
             break
     else:
         break
@@ -325,4 +344,3 @@ cap.release()
 out.release()
 
 cv2.destroyAllWindows()
-
